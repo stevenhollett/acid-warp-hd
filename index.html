@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acid Warp HD — GPU Psychedelic Visualizer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Fullscreen WebGL2 Canvas -->
+  <canvas id="warp-canvas"></canvas>
+
+  <!-- Subtle WebGL fallback message -->
+  <div id="webgl-error" class="webgl-error hidden">
+    <div class="webgl-error-card">
+      <h1>WebGL2 Required</h1>
+      <p>Acid Warp HD uses GPU shaders via WebGL2. Please open this page in a modern browser (Chrome, Edge, Firefox, or Safari) with hardware acceleration enabled.</p>
+    </div>
+  </div>
+
+  <!-- Top-left unobtrusive status badge (auto-hides) -->
+  <header class="hud-top-badge ui-chrome">
+    <div class="brand-dot"></div>
+    <span class="brand-name">ACID WARP <span class="brand-tag">HD</span></span>
+    <span class="hud-divider"></span>
+    <span id="fps-readout" class="fps-readout">60 FPS</span>
+  </header>
+
+  <!-- Top-right quick utility pills (auto-hides) -->
+  <div class="hud-top-actions ui-chrome">
+    <button id="btn-shortcuts" class="icon-pill" title="Keyboard Shortcuts (?)" aria-label="Keyboard Shortcuts">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </button>
+    <button id="btn-screenshot" class="icon-pill" title="Save HD Screenshot (C)" aria-label="Save Screenshot">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </button>
+    <button id="btn-fullscreen" class="icon-pill" title="Toggle Fullscreen (F)" aria-label="Toggle Fullscreen">
+      <svg id="icon-fs-enter" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      <svg id="icon-fs-exit" class="hidden" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+    </button>
+  </div>
+
+  <!-- Bottom Floating Transport Bar (auto-hides) -->
+  <nav class="transport-bar ui-chrome" aria-label="Visualizer Controls">
+    <div class="transport-group">
+      <button id="btn-prev-pattern" class="ctrl-btn" title="Previous Pattern (←)" aria-label="Previous Pattern">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button id="btn-play-pause" class="ctrl-btn ctrl-primary" title="Pause / Resume (Space)" aria-label="Pause or Resume">
+        <svg id="icon-pause" viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+        <svg id="icon-play" class="hidden" viewBox="0 0 24 24" width="17" height="17" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+      </button>
+      <button id="btn-next-pattern" class="ctrl-btn" title="Next Pattern (→)" aria-label="Next Pattern">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <span class="transport-sep"></span>
+
+    <button id="btn-now-playing" class="now-playing" title="Click to browse patterns & palettes">
+      <div class="now-playing-swatch" id="np-palette-dot"></div>
+      <div class="now-playing-text">
+        <span id="np-pattern-name" class="np-pattern">Acid Eye</span>
+        <span id="np-palette-name" class="np-palette">Acid Rainbow</span>
+      </div>
+    </button>
+
+    <span class="transport-sep"></span>
+
+    <div class="transport-group">
+      <button id="btn-reverse" class="ctrl-btn" title="Reverse Cycle Direction (R)" aria-label="Reverse Cycle Direction">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      </button>
+      <button id="btn-shuffle" class="ctrl-btn" title="Shuffle Pattern & Palette (S)" aria-label="Shuffle">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+      </button>
+      <button id="btn-lock-all" class="ctrl-btn" title="Lock Current Pattern (L)" aria-label="Lock Pattern">
+        <svg id="icon-unlocked" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>
+        <svg id="icon-locked" class="hidden" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </button>
+      <button id="btn-music-toggle" class="ctrl-btn music-btn" title="Toggle Psychedelic Music (M)" aria-label="Toggle Psychedelic Music">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      </button>
+      <button id="btn-toggle-drawer" class="ctrl-btn drawer-trigger" title="Open Studio Controls (H)" aria-label="Toggle Studio Panel">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span>Studio</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Right-Side Collapsible Glassmorphic Studio Drawer -->
+  <aside id="studio-drawer" class="studio-drawer ui-chrome" aria-label="Studio Control Panel">
+    <div class="drawer-header">
+      <div class="drawer-title-group">
+        <h2>Acid Warp Studio</h2>
+        <span class="drawer-subtitle">GPU Shader &amp; Palette Engine</span>
+      </div>
+      <div class="drawer-header-actions">
+        <button id="btn-pin-drawer" class="mini-icon-btn" title="Pin panel open (disable auto-hide)" aria-label="Pin panel">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+        </button>
+        <button id="btn-close-drawer" class="mini-icon-btn" title="Close Studio (H)" aria-label="Close Studio">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="drawer-tabs" role="tablist">
+      <button class="tab-btn active" data-tab="patterns" role="tab" aria-selected="true">Patterns</button>
+      <button class="tab-btn" data-tab="palettes" role="tab" aria-selected="false">Palettes</button>
+      <button class="tab-btn" data-tab="effects" role="tab" aria-selected="false">Effects</button>
+      <button class="tab-btn" data-tab="music" role="tab" aria-selected="false">Music</button>
+    </div>
+
+    <!-- Tab Body -->
+    <div class="drawer-body">
+      <!-- PATTERNS TAB -->
+      <section id="tab-patterns" class="tab-panel active">
+        <div class="filter-bar">
+          <div class="pill-group" id="pattern-filter-group">
+            <button class="filter-pill active" data-filter="All">All (24)</button>
+            <button class="filter-pill" data-filter="Classic">Classic</button>
+            <button class="filter-pill" data-filter="Modern">Modern GPU</button>
+          </div>
+          <label class="toggle-chip" title="Keep current pattern locked">
+            <input type="checkbox" id="chk-lock-pattern" />
+            <span>Lock</span>
+          </label>
+        </div>
+        <div id="pattern-grid" class="pattern-grid"></div>
+      </section>
+
+      <!-- PALETTES TAB -->
+      <section id="tab-palettes" class="tab-panel">
+        <!-- Custom Palette Editor Card -->
+        <div class="editor-card">
+          <div class="editor-header">
+            <span class="section-label">Custom Palette Studio</span>
+            <div class="editor-header-btns">
+              <button id="btn-random-palette" class="small-btn accent-btn" title="Generate a harmonious psychedelic palette">Randomize</button>
+              <button id="btn-toggle-editor" class="small-btn" title="Expand or collapse editor">Hide</button>
+            </div>
+          </div>
+
+          <div id="palette-editor-body" class="palette-editor-body">
+            <p class="editor-hint">Click track to add a color stop &middot; Drag stops to shift</p>
+
+            <!-- Interactive Gradient Track + Draggable Handles -->
+            <div class="gradient-track-wrap">
+              <div id="editor-gradient-track" class="gradient-track"></div>
+              <div id="editor-stops-layer" class="stops-layer"></div>
+            </div>
+
+            <!-- Active Stop Controls -->
+            <div class="stop-inspector">
+              <label class="color-picker-wrap">
+                <input type="color" id="editor-stop-color" value="#ff0055" />
+                <span id="editor-stop-hex">#FF0055</span>
+              </label>
+              <span id="editor-stop-pos" class="stop-pos-badge">0%</span>
+              <select id="editor-blend-mode" class="compact-select" title="Palette interpolation mode">
+                <option value="smooth">Smooth Loop</option>
+                <option value="linear">Linear RGB</option>
+                <option value="bands">Optical Bands</option>
+              </select>
+              <button id="btn-delete-stop" class="small-btn danger-btn" title="Delete selected color stop">Del</button>
+            </div>
+
+            <!-- Save Custom Palette Row -->
+            <div class="save-palette-row">
+              <input type="text" id="editor-palette-name" class="text-input" placeholder="Custom palette name..." maxlength="28" />
+              <button id="btn-save-palette" class="small-btn primary-btn">Save</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Palette Library Filter -->
+        <div class="filter-bar" style="margin-top: 12px;">
+          <div class="pill-group" id="palette-filter-group">
+            <button class="filter-pill active" data-filter="All">All</button>
+            <button class="filter-pill" data-filter="Classic">Classic</button>
+            <button class="filter-pill" data-filter="Modern">Modern</button>
+            <button class="filter-pill" data-filter="Custom">Custom</button>
+          </div>
+          <label class="toggle-chip" title="Keep current palette locked">
+            <input type="checkbox" id="chk-lock-palette" />
+            <span>Lock</span>
+          </label>
+        </div>
+
+        <div id="palette-grid" class="palette-grid"></div>
+      </section>
+
+      <!-- EFFECTS TAB -->
+      <section id="tab-effects" class="tab-panel">
+        <!-- 1-Click Mood Presets -->
+        <div class="control-section">
+          <span class="section-label">Quick Modes</span>
+          <div class="preset-buttons">
+            <button class="mode-btn" data-preset="modern">Liquid Neon HD</button>
+            <button class="mode-btn" data-preset="classic">Classic Retro DOS</button>
+            <button class="mode-btn" data-preset="kaleido">Prismatic Kaleido</button>
+            <button class="mode-btn" data-preset="zen">Zen Slow Drift</button>
+          </div>
+        </div>
+
+        <!-- Color Cycling -->
+        <div class="control-section">
+          <span class="section-label">Color Cycling</span>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-cycle-speed">Cycle Speed</label>
+              <span id="val-cycle-speed" class="slider-val">0.35x</span>
+            </div>
+            <input type="range" id="sl-cycle-speed" min="-2.0" max="2.0" step="0.02" value="0.35" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-color-scale">Palette Density</label>
+              <span id="val-color-scale" class="slider-val">0.85x</span>
+            </div>
+            <input type="range" id="sl-color-scale" min="0.2" max="2.8" step="0.05" value="0.85" />
+          </div>
+        </div>
+
+        <!-- Motion & Geometry -->
+        <div class="control-section">
+          <span class="section-label">Motion &amp; Geometry</span>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-motion-speed">Field Motion</label>
+              <span id="val-motion-speed" class="slider-val">55%</span>
+            </div>
+            <input type="range" id="sl-motion-speed" min="0" max="1.6" step="0.05" value="0.55" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-warp">Liquid Domain Warp</label>
+              <span id="val-warp" class="slider-val">18%</span>
+            </div>
+            <input type="range" id="sl-warp" min="0" max="1.0" step="0.02" value="0.18" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label>Kaleidoscope Symmetry</label>
+              <span id="val-kaleido" class="slider-val">Off</span>
+            </div>
+            <div class="segmented-row" id="kaleido-group">
+              <button class="seg-btn active" data-kaleido="0">Off</button>
+              <button class="seg-btn" data-kaleido="3">3</button>
+              <button class="seg-btn" data-kaleido="4">4</button>
+              <button class="seg-btn" data-kaleido="6">6</button>
+              <button class="seg-btn" data-kaleido="8">8</button>
+              <button class="seg-btn" data-kaleido="12">12</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modern Post-FX -->
+        <div class="control-section">
+          <span class="section-label">Shader Post-FX</span>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-bloom">Neon Bloom Glow</label>
+              <span id="val-bloom" class="slider-val">35%</span>
+            </div>
+            <input type="range" id="sl-bloom" min="0" max="1.0" step="0.02" value="0.35" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-sheen">3D Contour Sheen</label>
+              <span id="val-sheen" class="slider-val">28%</span>
+            </div>
+            <input type="range" id="sl-sheen" min="0" max="1.0" step="0.02" value="0.28" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-chroma">Chromatic Prism</label>
+              <span id="val-chroma" class="slider-val">15%</span>
+            </div>
+            <input type="range" id="sl-chroma" min="0" max="1.0" step="0.02" value="0.15" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-pixel">Retro Pixel Mode</label>
+              <span id="val-pixel" class="slider-val">Crisp HD</span>
+            </div>
+            <input type="range" id="sl-pixel" min="0" max="10" step="0.5" value="0" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-vignette">Cinema Vignette</label>
+              <span id="val-vignette" class="slider-val">25%</span>
+            </div>
+            <input type="range" id="sl-vignette" min="0" max="1.0" step="0.05" value="0.25" />
+          </div>
+        </div>
+
+        <!-- Projector Edge Masking -->
+        <div class="control-section">
+          <span class="section-label">Projection Edge Mask</span>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label>Border Shape</label>
+              <span id="val-edge-mode" class="slider-val">Off</span>
+            </div>
+            <div class="segmented-row segmented-5" id="edge-mask-group">
+              <button class="seg-btn active" data-edge="0">Off</button>
+              <button class="seg-btn" data-edge="1">Cloud</button>
+              <button class="seg-btn" data-edge="2">Liquid</button>
+              <button class="seg-btn" data-edge="3">Oval</button>
+              <button class="seg-btn" data-edge="4">Petal</button>
+            </div>
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-edge-inset">Blackout Border</label>
+              <span id="val-edge-inset" class="slider-val">35%</span>
+            </div>
+            <input type="range" id="sl-edge-inset" min="0" max="1.0" step="0.02" value="0.35" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-edge-soft">Edge Feather</label>
+              <span id="val-edge-soft" class="slider-val">55%</span>
+            </div>
+            <input type="range" id="sl-edge-soft" min="0" max="1.0" step="0.02" value="0.55" />
+          </div>
+          <p class="editor-hint">Blacks out outer edges organically so wall projections have no straight frame. Press <kbd>E</kbd> to cycle.</p>
+        </div>
+
+        <!-- Auto-Evolve Timers -->
+        <div class="control-section">
+          <span class="section-label">Auto-Evolve Timers</span>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-pattern-hold">Pattern Duration</label>
+              <span id="val-pattern-hold" class="slider-val">18s</span>
+            </div>
+            <input type="range" id="sl-pattern-hold" min="5" max="60" step="1" value="18" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-pattern-morph">Pattern Morph Time</label>
+              <span id="val-pattern-morph" class="slider-val">4.5s</span>
+            </div>
+            <input type="range" id="sl-pattern-morph" min="0.5" max="12" step="0.5" value="4.5" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-meta">
+              <label for="sl-palette-hold">Palette Duration</label>
+              <span id="val-palette-hold" class="slider-val">14s</span>
+            </div>
+            <input type="range" id="sl-palette-hold" min="5" max="60" step="1" value="14" />
+          </div>
+        </div>
+      </section>
+
+      <!-- MUSIC TAB -->
+      <section id="tab-music" class="tab-panel">
+        <!-- Player & Live Spectrum -->
+        <div class="control-section music-player-card">
+          <div class="music-player-top">
+            <button id="btn-music-play-big" class="music-play-pill">
+              <svg id="icon-music-play" viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+              <svg id="icon-music-stop" class="hidden" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+              <span id="music-play-label">Play Music</span>
+            </button>
+            <div class="music-status-text">
+              <span id="music-active-title" class="music-active-title">Cosmic Shimmer</span>
+              <span id="music-active-sub" class="music-active-sub">Generative Web Audio Synth</span>
+            </div>
+          </div>
+
+          <canvas id="audio-spectrum" class="audio-spectrum" width="310" height="44"></canvas>
+
+          <div class="slider-row" style="margin-top: 8px;">
+            <div class="slider-meta">
+              <label for="sl-music-volume">Volume</label>
+              <span id="val-music-volume" class="slider-val">65%</span>
+            </div>
+            <input type="range" id="sl-music-volume" min="0" max="1" step="0.02" value="0.65" />
+          </div>
+        </div>
+
+        <!-- Generative Psychedelic Soundscapes -->
+        <div class="control-section">
+          <span class="section-label">Psychedelic Soundscapes</span>
+          <div id="music-track-list" class="music-track-list"></div>
+        </div>
+
+        <!-- Audio-Reactive Visuals -->
+        <div class="control-section">
+          <div class="section-header-row">
+            <span class="section-label" style="margin-bottom: 0;">Audio-Reactive Visuals</span>
+            <label class="toggle-chip" title="Sync visual pulse & warp to the music">
+              <input type="checkbox" id="chk-audio-reactive" checked />
+              <span>Sync</span>
+            </label>
+          </div>
+          <div class="slider-row" style="margin-top: 10px;">
+            <div class="slider-meta">
+              <label for="sl-audio-reactivity">Reactivity Intensity</label>
+              <span id="val-audio-reactivity" class="slider-val">50%</span>
+            </div>
+            <input type="range" id="sl-audio-reactivity" min="0" max="1" step="0.05" value="0.50" />
+          </div>
+          <p class="editor-hint">Bass pulses color cycling &amp; neon glow; mids breathe liquid warp; highs shimmer prism dispersion.</p>
+        </div>
+
+        <!-- Local Audio File Loader -->
+        <div class="control-section">
+          <span class="section-label">Play Your Own Track</span>
+          <div class="local-audio-row">
+            <input type="file" id="input-local-audio" accept="audio/*" class="hidden" />
+            <button id="btn-load-local-audio" class="small-btn accent-btn" style="flex: 1;">Choose Local Audio File (.mp3 / .wav)</button>
+          </div>
+          <p id="local-audio-name" class="editor-hint" style="margin-top: 6px;">Loops locally in your browser with full audio-reactive visuals.</p>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div id="shortcuts-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Keyboard Shortcuts</h3>
+        <button id="btn-close-shortcuts" class="mini-icon-btn" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="shortcut-list">
+        <div class="shortcut-row"><span>Pause / Resume</span><kbd>Space</kbd></div>
+        <div class="shortcut-row"><span>Next / Previous Pattern</span><span><kbd>→</kbd> <kbd>←</kbd></span></div>
+        <div class="shortcut-row"><span>Previous / Next Music Track</span><span><kbd>↑</kbd> <kbd>↓</kbd></span></div>
+        <div class="shortcut-row"><span>Next / Previous Palette</span><span><kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd></span></div>
+        <div class="shortcut-row"><span>Slower / Faster Cycle</span><span><kbd>[</kbd> <kbd>]</kbd></span></div>
+        <div class="shortcut-row"><span>Reverse Cycle Direction</span><kbd>R</kbd></div>
+        <div class="shortcut-row"><span>Lock / Unlock Pattern</span><kbd>L</kbd></div>
+        <div class="shortcut-row"><span>Lock / Unlock Palette</span><kbd>P</kbd></div>
+        <div class="shortcut-row"><span>Shuffle Pattern &amp; Palette</span><kbd>S</kbd></div>
+        <div class="shortcut-row"><span>Toggle Psychedelic Music</span><kbd>M</kbd></div>
+        <div class="shortcut-row"><span>Cycle Projection Edge Mask</span><kbd>E</kbd></div>
+        <div class="shortcut-row"><span>Toggle Studio Drawer</span><kbd>H</kbd></div>
+        <div class="shortcut-row"><span>Fullscreen Mode</span><kbd>F</kbd></div>
+        <div class="shortcut-row"><span>Capture PNG Screenshot</span><kbd>C</kbd></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts (classic order so file:// works with zero setup) -->
+  <script src="palettes.js"></script>
+  <script src="shaders.js"></script>
+  <script src="renderer.js"></script>
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
